@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Round Robin Scheduling Algorithm</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'dark-gold': '#B8860B',
+                        'light-gold': '#DAA520',
+                        'dark': '#121212',
+                        'darker': '#0A0A0A'
+                    },
+                    fontFamily: {
+                        'sans': ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap');
+        
+        body {
+            background-color: #0A0A0A;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .gold-glow {
+            text-shadow: 0 0 10px rgba(218, 165, 32, 0.3);
+        }
+        
+        .hidden-element {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        
+        .process-circle {
+            transition: all 0.3s ease;
+        }
+        
+        .process-circle:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(218, 165, 32, 0.5);
+        }
+        
+        .timeline {
+            height: 4px;
+            background-color: #333;
+            position: relative;
+        }
+        
+        .timeline-marker {
+            position: absolute;
+            width: 2px;
+            height: 10px;
+            background-color: #DAA520;
+            top: -3px;
+        }
+        
+        .timeline-label {
+            position: absolute;
+            top: 10px;
+            transform: translateX(-50%);
+            font-size: 12px;
+            color: #aaa;
+        }
+        
+        .quantum-block {
+            position: absolute;
+            height: 4px;
+            background-color: #B8860B;
+            top: 0;
+        }
+        
+        .animation-container {
+            position: relative;
+            height: 300px;
+            overflow: hidden;
+        }
+        
+        .cpu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(145deg, #121212, #1a1a1a);
+            border: 2px solid #B8860B;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 30px rgba(184, 134, 11, 0.3);
+            z-index: 10;
+        }
+        
+        .process {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            transition: all 0.5s ease;
+        }
+        
+        .ready-queue {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            height: 60px;
+            border: 1px dashed #555;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+        }
+        
+        .comparison-table th,
+        .comparison-table td {
+            padding: 12px;
+            text-align: left;
+        }
+        
+        .comparison-table th {
+            background-color: #1a1a1a;
+        }
+        
+        .comparison-table tr:nth-child(even) {
+            background-color: #1a1a1a;
+        }
+        
+        .comparison-table tr:hover {
+            background-color: #222;
+        }
+        
+        .advantage {
+            border-left: 3px solid #16A34A;
+        }
+        
+        .disadvantage {
+            border-left: 3px solid #DC2626;
+        }
+    </style>
+</head>
+<body>
+    <!-- Hero Section -->
+    <header class="min-h-screen flex items-center justify-center relative overflow-hidden">
+        <div class="absolute inset-0 z-0">
+            <div class="absolute inset-0 bg-darker opacity-90"></div>
+            <div id="particles" class="absolute inset-0"></div>
+        </div>
+        
+        <div class="container mx-auto px-4 z-10 text-center">
+            <h1 class="text-5xl md:text-7xl font-bold mb-6 gold-glow hidden-element" id="main-title">
+                <span class="text-white">Round Robin</span>
+                <span class="text-dark-gold"> Scheduling</span>
+            </h1>
+            <p class="text-xl md:text-2xl mb-12 max-w-3xl mx-auto hidden-element" id="main-subtitle">
+                A fair, preemptive CPU scheduling algorithm designed for time-sharing systems
+            </p>
+            
+            <div class="hidden-element" id="main-description">
+                <p class="text-lg mb-8 max-w-2xl mx-auto">
+                    Round Robin is one of the oldest, simplest, and most widely used scheduling algorithms in operating systems, 
+                    designed to provide fair CPU time to all processes.
+                </p>
+                
+                <div class="inline-block animate-bounce mt-8">
+                    <svg class="w-8 h-8 text-dark-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- What is Round Robin Section -->
+    <section class="py-20 bg-dark">
+        <div class="container mx-auto px-4">
+            <h2 class="text-4xl font-bold mb-16 text-center hidden-element">
+                <span class="text-white">What is </span>
+                <span class="text-dark-gold">Round Robin?</span>
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                <div class="hidden-element">
+                    <p class="text-lg mb-6">
+                        Round Robin is a CPU scheduling algorithm where each process is assigned a fixed time slot in a cyclic way. 
+                        It is designed especially for <span class="text-dark-gold">time-sharing systems</span>.
+                    </p>
+                    <p class="text-lg mb-6">
+                        The name "Round Robin" comes from the principle where each person takes an equal share of something in turn, 
+                        similar to how knights would gather around the round table so that everyone had equal status.
+                    </p>
+                    <p class="text-lg">
+                        In this algorithm, each process gets a small unit of CPU time (called a <span class="text-dark-gold">time quantum</span> or time slice), 
+                        and after this time has elapsed, the process is preempted and added to the end of the ready queue.
+                    </p>
+                </div>
+                
+                <div class="hidden-element">
+                    <div class="relative rounded-lg overflow-hidden border-2 border-dark-gold p-6 bg-darker">
+                        <div class="absolute top-0 right-0 w-20 h-20">
+                            <svg viewBox="0 0 100 100" class="w-full h-full text-dark-gold opacity-10">
+                                <circle cx="50" cy="50" r="40" stroke="currentColor" stroke-width="8" fill="none" />
+                                <path d="M50 10 L50 50 L75 65" stroke="currentColor" stroke-width="8" stroke-linecap="round" fill="none" />
+                            </svg>
+                        </div>
+                        
+                        <h3 class="text-2xl font-bold mb-4 text-light-gold">Key Characteristics</h3>
+                        <ul class="space-y-3">
+                            <li class="flex items-start">
+                                <svg class="w-6 h-6 text-dark-gold mr-2 mt-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                <span><strong>Preemptive:</strong> Processes are forcibly switched after time quantum expires</span>
+                            </li>
+                            <li class="flex items-start">
+                                <svg class="w-6 h-6 text-dark-gold mr-2 mt-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                <span><strong>Time Quantum:</strong> Fixed time allocation for each process</span>
+                            </li>
+                            <li class="flex items-start">
+                                <svg class="w-6 h-6 text-dark-gold mr-2 mt-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                <span><strong>Cyclic Queue:</strong> Processes are arranged in a circular queue</span>
+                            </li>
+                            <li class="flex items-start">
+                                <svg class="w-6 h-6 text-dark-gold mr-2 mt-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                <span><strong>Fair Allocation:</strong> Equal CPU time for all processes</span>
+                            </li>
+                            <li class="flex items-start">
+                                <svg class="w-6 h-6 text-dark-gold mr-2 mt-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                <span><strong>Context Switching:</strong> Overhead due to frequent switching between processes</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How it Works Section -->
+    <section class="py-20 bg-darker">
+        <div class="container mx-auto px-4">
+            <h2 class="text-4xl font-bold mb-16 text-center hidden-element">
+                <span class="text-white">How </span>
+                <span class="text-dark-gold">It Works</span>
+            </h2>
+            
+            <div class="hidden-element">
+                <div class="animation-container mb-16" id="rr-animation">
+                    <div class="cpu">
+                        <span class="text-dark-gold font-bold">CPU</span>
+                    </div>
+                    
+                    <div class="process" style="background-color: #DC2626; top: 50px; left: 100px;" id="p1">P1</div>
+                    <div class="process" style="background-color: #2563EB; top: 100px; left: 150px;" id="p2">P2</div>
+                    <div class="process" style="background-color: #16A34A; top: 150px; left: 80px;" id="p3">P3</div>
+                    <div class="process" style="background-color: #9333EA; top: 200px; left: 120px;" id="p4">P4</div>
+                    
+                    <div class="ready-queue">
+                        <div id="queue-label" class="absolute -top-6 left-0 text-sm text-gray-400">Ready Queue</div>
+                    </div>
+                </div>
+                
+                <div class="mb-12">
+                    <h3 class="text-2xl font-bold mb-4 text-light-gold">Round Robin Algorithm Steps</h3>
+                    <div class="relative">
+                        <div class="timeline mb-8" id="timeline">
+                            <!-- Timeline markers will be added by JavaScript -->
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-12">
+                            <div class="bg-dark p-4 rounded-lg border-t-4 border-dark-gold">
+                                <div class="text-2xl font-bold mb-2">Step 1</div>
+                                <p>Processes are placed in a <strong>circular queue</strong> (FIFO order)</p>
+                            </div>
+                            
+                            <div class="bg-dark p-4 rounded-lg border-t-4 border-dark-gold">
+                                <div class="text-2xl font-bold mb-2">Step 2</div>
+                                <p>CPU is allocated to a process for a <strong>time quantum</strong></p>
+                            </div>
+                            
+                            <div class="bg-dark p-4 rounded-lg border-t-4 border-dark-gold">
+                                <div class="text-2xl font-bold mb-2">Step 3</div>
+                                <p>After time quantum expires, process is <strong>preempted</strong></p>
+                            </div>
+                            
+                            <div class="bg-dark p-4 rounded-lg border-t-4 border-dark-gold">
+                                <div class="text-2xl font-bold mb-2">Step 4</div>
+                                <p>Process is placed at the <strong>end of the queue</strong></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hidden-element mt-16">
+                <h3 class="text-2xl font-bold mb-6 text-light-gold">Example Scenario</h3>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="bg-dark rounded-lg p-6">
+                        <h4 class="font-bold mb-4">Process Details</h4>
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b border-gray-700">
+                                    <th class="py-2 text-left">Process</th>
+                                    <th class="py-2 text-left">Burst Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b border-gray-700">
+                                    <td class="py-2">P1</td>
+                                    <td class="py-2">24 ms</td>
+                                </tr>
+                                <tr class="border-b border-gray-700">
+                                    <td class="py-2">P2</td>
+                                    <td class="py-2">3 ms</td>
+                                </tr>
+                                <tr class="border-b border-gray-700">
+                                    <td class="py-2">P3</td>
+                                    <td class="py-2">3 ms</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="mt-4 text-sm text-gray-400">
+                            Time Quantum = 4ms
+                        </div>
+                    </div>
+                    
+                    <div class="lg:col-span-2 bg-dark rounded-lg p-6">
+                        <h4 class="font-bold mb-4">Gantt Chart</h4>
+                        <div class="relative">
+                            <div class="flex h-12 mb-6">
+                                <div class="bg-red-600 flex-grow-0 flex-shrink-0 w-1/6 flex items-center justify-center text-white font-bold">P1</div>
+                                <div class="bg-blue-600 flex-grow-0 flex-shrink-0 w-1/6 flex items-center justify-center text-white font-bold">P2</div>
+                                <div class="bg-green-600 flex-grow-0 flex-shrink-0 w-1/6 flex items-center justify-center text-white font-bold">P3</div>
+                                <div class="bg-red-600 flex-grow-0 flex-shrink-0 w-1/6 flex items-center justify-center text-white font-bold">P1</div>
+                                <div class="bg-red-600 flex-grow-0 flex-shrink-0 w-1/6 flex items-center justify-center text-white font-bold">P1</div>
+                                <div class="bg-red-600 flex-grow-0 flex-shrink-0 w-1/6 flex items-center justify-center text-white font-bold">P1</div>
+                            </div>
+                            
+                            <div class="flex justify-between text-sm text-gray-400">
+                                <div>0</div>
+                                <div>4</div>
+                                <div>7</div>
+                                <div>10</div>
+                                <div>14</div>
+                                <div>18</div>
+                                <div>22</div>
+                            </div>
+                            
+                            <div class="mt-6">
+                                <h5 class="font-medium mb-2">Results:</h5>
+                                <ul class="space-y-1 text-sm">
+                                    <li><span class="text-red-400">P1</span> Waiting Time: 10ms, Turnaround Time: 34ms</li>
+                                    <li><span class="text-blue-400">P2</span> Waiting Time: 4ms, Turnaround Time: 7ms</li>
+                                    <li><span class="text-green-400">P3</span> Waiting Time: 7ms, Turnaround Time: 10ms</li>
+                                    <li class="pt-2 text-light-gold">Average Waiting Time: 7ms</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Advantages and Disadvantages Section -->
+    <section class="py-20 bg-dark">
+        <div class="container mx-auto px-4">
+            <h2 class="text-4xl font-bold mb-16 text-center hidden-element">
+                <span class="text-white">Advantages & </span>
+                <span class="text-dark-gold">Disadvantages</span>
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+                <div class="hidden-element">
+                    <h3 class="text-2xl font-bold mb-6 text-light-gold">Advantages</h3>
+                    
+                    <div class="space-y-4">
+                        <div class="bg-darker p-4 rounded-lg advantage">
+                            <h4 class="font-bold mb-2">Fair CPU Allocation</h4>
+                            <p>Every process gets an equal share of the CPU, preventing any single process from monopolizing the processor.</p>
+                        </div>
+                        
+                        <div class="bg-darker p-4 rounded-lg advantage">
+                            <h4 class="font-bold mb-2">Good for Time-Sharing</h4>
+                            <p>Ideal for time-sharing environments where system responsiveness is important.</p>
+                        </div>
+                        
+                        <div class="bg-darker p-4 rounded-lg advantage">
+                            <h4 class="font-bold mb-2">Low Response Time</h4>
+                            <p>Provides good response time for short processes and interactive users.</p>
+                        </div>
+                        
+                        <div class="bg-darker p-4 rounded-lg advantage">
+                            <h4 class="font-bold mb-2">Simple Implementation</h4>
+                            <p>Easy to implement using a FIFO queue and a timer interrupt.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="hidden-element">
+                    <h3 class="text-2xl font-bold mb-6 text-light-gold">Disadvantages</h3>
+                    
+                    <div class="space-y-4">
+                        <div class="bg-darker p-4 rounded-lg disadvantage">
+                            <h4 class="font-bold mb-2">Context Switching Overhead</h4>
+                            <p>Frequent context switching can lead to significant overhead, especially with a small time quantum.</p>
+                        </div>
+                        
+                        <div class="bg-darker p-4 rounded-lg disadvantage">
+                            <h4 class="font-bold mb-2">Time Quantum Dilemma</h4>
+                            <p>Choosing the optimal time quantum is challenging - too small increases overhead, too large defeats the purpose.</p>
+                        </div>
+                        
+                        <div class="bg-darker p-4 rounded-lg disadvantage">
+                            <h4 class="font-bold mb-2">Higher Average Waiting Time</h4>
+                            <p>Can have higher average waiting time compared to Shortest Job First (SJF) scheduling.</p>
+                        </div>
+                        
+                        <div class="bg-darker p-4 rounded-lg disadvantage">
+                            <h4 class="font-bold mb-2">No Priority Consideration</h4>
+                            <p>Does not consider process priorities or deadlines in its basic form.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Time Quantum Effects Section -->
+    <section class="py-20 bg-darker">
+        <div class="container mx-auto px-4">
+            <h2 class="text-4xl font-bold mb-16 text-center hidden-element">
+                <span class="text-white">Time Quantum </span>
+                <span class="text-dark-gold">Effects</span>
+            </h2>
+            
+            <div class="hidden-element">
+                <p class="text-lg mb-12 max-w-3xl mx-auto text-center">
+                    The time quantum is a critical parameter in Round Robin scheduling. Its value significantly affects system performance.
+                </p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+                    <div class="bg-dark rounded-lg p-6 border border-gray-800">
+                        <h3 class="text-xl font-bold mb-6 text-light-gold">Small Time Quantum</h3>
+                        
+                        <div class="flex items-center mb-8">
+                            <div class="w-16 h-16 bg-dark-gold rounded-full flex items-center justify-center text-black font-bold text-2xl mr-6">
+                                <span>TQ</span>
+                            </div>
+                            <div>
+                                <div class="text-sm">Example: 1-10 milliseconds</div>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div class="flex items-start">
+                                <svg class="w-5 h-5 text-green-500 mt-1 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                <div>
+                                    <h4 class="font-medium">Better Response Time</h4>
+                                    <p class="text-sm text-gray-400">Processes get CPU attention more frequently</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <svg class="w-5 h-5 text-green-500 mt-1 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                <div>
+                                    <h4 class="font-medium">More Fair Distribution</h4>
+                                    <p class="text-sm text-gray-400">CPU time is distributed more evenly</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <svg class="w-5 h-5 text-red-500 mt-1 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                                <div>
+                                    <h4 class="font-medium">High Context Switching</h4>
+                                    <p class="text-sm text-gray-400">More overhead due to frequent switching</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <svg class="w-5 h-5 text-red-500 mt-1 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                                <div>
+                                    <h4 class="font-medium">Lower Throughput</h4>
+                                    <p class="text-sm text-gray-400">Fewer processes completed per unit time</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-dark rounded-lg p-6 border border-gray-800">
+                        <h3 class="text-xl font-bold mb-6 text-light-gold">Large Time Quantum</h3>
+                        
+                        <div class="flex items-center mb-8">
+                            <div class="w-24 h-16 bg-dark-gold rounded-lg flex items-center justify-center text-black font-bold text-2xl mr-6">
+                                <span>TQ</span>
+                            </div>
+                            <div>
+                                <div class="text-sm">Example: 100+ milliseconds</div>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div class="flex items-start">
+                                <svg class="w-5 h-5 text-green-500 mt-1 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                <div>
+                                    <h4 class="font-medium">Less Context Switching</h4>
+                                    <p class="text-sm text-gray-400">Reduced overhead from switching</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <svg class="w-5 h-5 text-green-500 mt-1 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                <div>
+                                    <h4 class="font-medium">Higher Throughput</h4>
+                                    <p class="text-sm text-gray-400">More processes completed per unit time</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <svg class="w-5 h-5 text-red-500 mt-1 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                                <div>
+                                    <h4 class="font-medium">Poor Response Time</h4>
+                                    <p class="text-sm text-gray-400">Processes wait longer for CPU attention</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <svg class="w-5 h-5 text-red-500 mt-1 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                                <div>
+                                    <h4 class="font-medium">Approaches FCFS</h4>
+                                    <p class="text-sm text-gray-400">With very large quantum, behaves like First-Come-First-Served</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-12 p-6 bg-dark rounded-lg border border-gray-800 max-w-3xl mx-auto">
+                    <h4 class="font-bold mb-4 text-center">Finding the Optimal Time Quantum</h4>
+                    <p class="mb-4">
+                        The optimal time quantum depends on the specific workload and system requirements. A general guideline is:
+                    </p>
+                    <ul class="space-y-2 mb-4">
+                        <li class="flex items-start">
+                            <span class="text-dark-gold mr-2">•</span>
+                            <span>Should be slightly larger than the time required for a typical interaction (e.g., keyboard input)</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-dark-gold mr-2">•</span>
+                            <span>80% of processes should complete in a single time quantum</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-dark-gold mr-2">•</span>
+                            <span>Common values range from 10-100 milliseconds in modern operating systems</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Comparison with Other Algorithms Section -->
+    <section class="py-20 bg-dark">
+        <div class="container mx-auto px-4">
+            <h2 class="text-4xl font-bold mb-16 text-center hidden-element">
+                <span class="text-white">Algorithm </span>
+                <span class="text-dark-gold">Comparison</span>
+            </h2>
+            
+            <div class="hidden-element overflow-x-auto">
+                <table class="w-full comparison-table">
+                    <thead>
+                        <tr class="border-b border-gray-700">
+                            <th class="py-4">Algorithm</th>
+                            <th class="py-4">Type</th>
+                            <th class="py-4">Advantages</th>
+                            <th class="py-4">Disadvantages</th>
+                            <th class="py-4">Best For</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="border-b border-gray-700 bg-gradient-to-r from-dark-gold/10 to-transparent">
+                            <td class="py-4 font-bold text-dark-gold">Round Robin</td>
+                            <td class="py-4">Preemptive</td>
+                            <td class="py-4">
+                                <div>• Fair CPU distribution</div>
+                                <div>• Good response time</div>
+                            </td>
+                            <td class="py-4">
+                                <div>• Context switching overhead</div>
+                                <div>• Average turnaround time</div>
+                            </td>
+                            <td class="py-4">Time-sharing systems, interactive environments</td>
+                        </tr>
+                        <tr class="border-b border-gray-700">
+                            <td class="py-4 font-bold">FCFS</td>
+                            <td class="py-4">Non-preemptive</td>
+                            <td class="py-4">
+                                <div>• Simple implementation</div>
+                                <div>• No starvation</div>
+                            </td>
+                            <td class="py-4">
+                                <div>• Convoy effect</div>
+                                <div>• Poor response time</div>
+                            </td>
+                            <td class="py-4">Batch systems, simple implementations</td>
+                        </tr>
+                        <tr class="border-b border-gray-700">
+                            <td class="py-4 font-bold">SJF</td>
+                            <td class="py-4">Non-preemptive</td>
+                            <td class="py-4">
+                                <div>• Optimal average waiting time</div>
+                                <div>• Good throughput</div>
+                            </td>
+                            <td class="py-4">
+                                <div>• Starvation possible</div>
+                                <div>• Requires burst time prediction</div>
+                            </td>
+                            <td class="py-4">Batch processing, when burst times are known</td>
+                        </tr>
+                        <tr class="border-b border-gray-700">
+                            <td class="py-4 font-bold">Priority</td>
+                            <td class="py-4">Both</td>
+                            <td class="py-4">
+                                <div>• Prioritizes important tasks</div>
+                                <div>• Flexible implementation</div>
+                            </td>
+                            <td class="py-4">
+                                <div>• Starvation of low priority</div>
+                                <div>• Priority inversion issues</div>
+                            </td>
+                            <td class="py-4">Real-time systems, systems with varying task importance</td>
+                        </tr>
+                        <tr>
+                            <td class="py-4 font-bold">Multilevel Queue</td>
+                            <td class="py-4">Both</td>
+                            <td class="py-4">
+                                <div>• Flexible for different process types</div>
+                                <div>• Can combine algorithms</div>
+                            </td>
+                            <td class="py-4">
+                                <div>• Complex implementation</div>
+                                <div>• Potential starvation</div>
+                            </td>
+                            <td class="py-4">Systems with varied process types (foreground/background)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- Real-world Applications Section -->
+    <section class="py-20 bg-darker">
+        <div class="container mx-auto px-4">
+            <h2 class="text-4xl font-bold mb-16 text-center hidden-element">
+                <span class="text-white">Real-world </span>
+                <span class="text-dark-gold">Applications</span>
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="hidden-element">
+                    <div class="bg-dark rounded-lg p-6 h-full border border-gray-800 hover:border-dark-gold transition-colors duration-300">
+                        <div class="w-16 h-16 bg-darker rounded-full flex items-center justify-center mb-6">
+                            <svg class="w-8 h-8 text-dark-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                            </svg>
+                        </div>
+                        
+                        <h3 class="text-xl font-bold mb-4 text-light-gold">Operating Systems</h3>
+                        <p class="mb-4">
+                            Many modern operating systems use variants of Round Robin for process scheduling:
+                        </p>
+                        <ul class="space-y-2 text-gray-300">
+                            <li class="flex items-start">
+                                <span class="text-dark-gold mr-2">•</span>
+                                <span>Linux uses the Completely Fair Scheduler (CFS), which evolved from Round Robin concepts</span>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-dark-gold mr-2">•</span>
+                                <span>Windows uses a multilevel feedback queue with Round Robin at each priority level</span>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-dark-gold mr-2">•</span>
+                                <span>Unix-based systems often implement Round Robin with priorities</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="hidden-element">
+                    <div class="bg-dark rounded-lg p-6 h-full border border-gray-800 hover:border-dark-gold transition-colors duration-300">
+                        <div class="w-16 h-16 bg-darker rounded-full flex items-center justify-center mb-6">
+                            <svg class="w-8 h-8 text-dark-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path>
+                            </svg>
+                        </div>
+                        
+                        <h3 class="text-xl font-bold mb-4 text-light-gold">Network Scheduling</h3>
+                        <p class="mb-4">
+                            Round Robin is widely used in network packet scheduling and load balancing:
+                        </p>
+                        <ul class="space-y-2 text-gray-300">
+                            <li class="flex items-start">
+                                <span class="text-dark-gold mr-2">•</span>
+                                <span>DNS servers use Round Robin to distribute loads across multiple servers</span>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-dark-gold mr-2">•</span>
+                                <span>Network routers often use Round Robin for fair bandwidth allocation</span>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-dark-gold mr-2">•</span>
+                                <span>Web servers use Round Robin to distribute client requests</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="hidden-element">
+                    <div class="bg-dark rounded-lg p-6 h-full border border-gray-800 hover:border-dark-gold transition-colors duration-300">
+                        <div class="w-16 h-16 bg-darker rounded-full flex items-center justify-center mb-6">
+                            <svg class="w-8 h-8 text-dark-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                            </svg>
+                        </div>
+                        
+                        <h3 class="text-xl font-bold mb-4 text-light-gold">Real-time Systems</h3>
+                        <p class="mb-4">
+                            Modified versions of Round Robin are used in real-time and embedded systems:
+                        </p>
+                        <ul class="space-y-2 text-gray-300">
+                            <li class="flex items-start">
+                                <span class="text-dark-gold mr-2">•</span>
+                                <span>Real-time operating systems (RTOS) use Round Robin with priorities</span>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-dark-gold mr-2">•</span>
+                                <span>Embedded systems with multiple tasks often implement Round Robin</span>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-dark-gold mr-2">•</span>
+                                <span>Industrial control systems use Round Robin for predictable task execution</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Try the Simulator Section -->
+    <section class="py-20 bg-gradient-to-b from-darker to-dark">
+        <div class="container mx-auto px-4 text-center">
+            <h2 class="text-4xl font-bold mb-8 hidden-element">
+                <span class="text-white">Try the </span>
+                <span class="text-dark-gold">Simulator</span>
+            </h2>
+            
+            <p class="text-xl mb-12 max-w-2xl mx-auto hidden-element">
+                Ready to see Round Robin scheduling in action? Our interactive simulator lets you experiment with different time quantum values and process configurations.
+            </p>
+            
+            <div class="hidden-element">
+                <a href="rr.html" class="inline-block bg-dark-gold hover:bg-light-gold text-black font-bold py-4 px-10 rounded-full transition-all duration-300 transform hover:scale-105 hover:shadow-lg text-lg">
+                    Launch Simulator
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-10 bg-darker border-t border-gray-800">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-6 md:mb-0">
+                    <h3 class="text-2xl font-bold">
+                        <span class="text-white">Round</span>
+                        <span class="text-dark-gold">Robin</span>
+                    </h3>
+                    <p class="text-gray-400 mt-2">CPU Scheduling Algorithm</p>
+                </div>
+                
+                <div class="flex space-x-6">
+                    <a href="#" class="text-gray-400 hover:text-dark-gold transition-colors duration-300">Home</a>
+                    <a href="rr.html" class="text-gray-400 hover:text-dark-gold transition-colors duration-300">Simulator</a>
+                    <a href="#" class="text-gray-400 hover:text-dark-gold transition-colors duration-300">Resources</a>
+                </div>
+            </div>
+            
+            <div class="mt-8 pt-8 border-t border-gray-800 text-center text-gray-500 text-sm">
+                &copy; 2025 Round Robin Scheduling Algorithm. All rights reserved.
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Initialize GSAP and ScrollTrigger
+        gsap.registerPlugin(ScrollTrigger);
+        
+        // Hero animations
+        gsap.to("#main-title", {
+            opacity: 1,
+            y: 0,
+            duration: 1,
+            delay: 0.5
+        });
+        
+        gsap.to("#main-subtitle", {
+            opacity: 1,
+            y: 0,
+            duration: 1,
+            delay: 0.8
+        });
+        
+        gsap.to("#main-description", {
+            opacity: 1,
+            y: 0,
+            duration: 1,
+            delay: 1.1
+        });
+        
+        // Scroll animations
+        const revealElements = document.querySelectorAll('.hidden-element');
+        
+        revealElements.forEach((element) => {
+            gsap.to(element, {
+                scrollTrigger: {
+                    trigger: element,
+                    start: "top 80%",
+                    toggleActions: "play none none none"
+                },
+                opacity: 1,
+                y: 0,
+                duration: 0.8,
+                ease: "power2.out"
+            });
+        });
+        
+        // Round Robin Animation
+        function animateRoundRobin() {
+            const processes = ["p1", "p2", "p3", "p4"];
+            const colors = ["#DC2626", "#2563EB", "#16A34A", "#9333EA"];
+            const timeline = gsap.timeline({repeat: -1});
+            
+            // Create timeline markers
+            const timelineEl = document.getElementById('timeline');
+            for (let i = 0; i <= 20; i += 4) {
+                const marker = document.createElement('div');
+                marker.className = 'timeline-marker';
+                marker.style.left = `${(i / 20) * 100}%`;
+                timelineEl.appendChild(marker);
+                
+                const label = document.createElement('div');
+                label.className = 'timeline-label';
+                label.textContent = i;
+                label.style.left = `${(i / 20) * 100}%`;
+                timelineEl.appendChild(label);
+            }
+            
+            // Create quantum blocks
+            for (let i = 0; i < 5; i++) {
+                for (let j = 0; j < processes.length; j++) {
+                    if (i * 4 + j < 20) { // Only create blocks up to time 20
+                        const block = document.createElement('div');
+                        block.className = 'quantum-block';
+                        block.style.left = `${((i * 4 + j) / 20) * 100}%`;
+                        block.style.width = `${(1 / 20) * 100}%`;
+                        block.style.backgroundColor = colors[j % colors.length];
+                        block.style.opacity = "0";
+                        timelineEl.appendChild(block);
+                        
+                        timeline.to(block, {
+                            opacity: 1,
+                            duration: 0.5,
+                            delay: (i * 4 + j) * 0.5
+                        });
+                    }
+                }
+            }
+            
+            // Ready queue
+            const readyQueue = document.querySelector('.ready-queue');
+            
+            // Initial positions
+            processes.forEach((process, index) => {
+                const el = document.getElementById(process);
+                gsap.set(el, {
+                    x: 0,
+                    y: 0,
+                    scale: 1,
+                    opacity: 1
+                });
+            });
+            
+            // Animation sequence
+            let queuePosition = 0;
+            
+            // Repeat for multiple rounds
+            for (let round = 0; round < 2; round++) {
+                processes.forEach((process, index) => {
+                    // Add to queue
+                    timeline.to(`#${process}`, {
+                        x: 20 + (queuePosition * 60),
+                        y: readyQueue.offsetTop - 100,
+                        duration: 1,
+                        ease: "power2.inOut"
+                    });
+                    
+                    queuePosition++;
+                    
+                    // Move to CPU
+                    timeline.to(`#${process}`, {
+                        x: document.querySelector('.cpu').offsetLeft - 50,
+                        y: document.querySelector('.cpu').offsetTop - 100,
+                        scale: 1.2,
+                        duration: 1,
+                        ease: "power2.inOut"
+                    });
+                    
+                    // Process execution (rotate)
+                    timeline.to(`#${process}`, {
+                        rotation: 360,
+                        duration: 1.5,
+                        ease: "none"
+                    }, "-=0.5");
+                    
+                    // If not last process in round, move back to queue
+                    if (!(round == 1 && index == processes.length - 1)) {
+                        timeline.to(`#${process}`, {
+                            x: 20 + (queuePosition * 60),
+                            y: readyQueue.offsetTop - 100,
+                            scale: 1,
+                            duration: 1,
+                            ease: "power2.inOut"
+                        });
+                    }
+                });
+            }
+            
+            return timeline;
+        }
+        
+        // Start animation when in view
+        ScrollTrigger.create({
+            trigger: "#rr-animation",
+            start: "top 80%",
+            onEnter: () => animateRoundRobin(),
+            onLeave: () => gsap.globalTimeline.clear()
+        });
+        
+        // Particles animation for hero background
+        function createParticles() {
+            const particlesContainer = document.getElementById('particles');
+            const particleCount = 100;
+            
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'absolute w-1 h-1 bg-dark-gold rounded-full opacity-0';
+                
+                // Random position
+                const posX = Math.random() * 100;
+                const posY = Math.random() * 100;
+                
+                particle.style.left = `${posX}%`;
+                particle.style.top = `${posY}%`;
+                
+                // Random size
+                const size = Math.random() * 3 + 1;
+                particle.style.width = `${size}px`;
+                particle.style.height = `${size}px`;
+                
+                particlesContainer.appendChild(particle);
+                
+                // Animate each particle
+                gsap.to(particle, {
+                    opacity: Math.random() * 0.5 + 0.1,
+                    duration: 1,
+                    delay: Math.random() * 2
+                });
+                
+                // Continuous floating animation
+                gsap.to(particle, {
+                    x: Math.random() * 100 - 50,
+                    y: Math.random() * 100 - 50,
+                    duration: Math.random() * 15 + 15,
+                    repeat: -1,
+                    yoyo: true,
+                    ease: "sine.inOut"
+                });
+            }
+        }
+        
+        // Create particles on page load
+        window.addEventListener('load', createParticles);
+    </script>
+</body>
+</html>

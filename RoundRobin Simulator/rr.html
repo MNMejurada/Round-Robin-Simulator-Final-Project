@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Round Robin Scheduler</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
+    <link rel="stylesheet" href="output.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/ScrollToPlugin.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>Round Robin CPU Scheduler</h1>
+            <p>Simulate and visualize the Round Robin CPU scheduling algorithm with customizable time quantum and process parameters.</p>
+        </header>
+        
+        <!-- Input Panel -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="3" y1="9" x2="21" y2="9"></line>
+                        <line x1="9" y1="21" x2="9" y2="9"></line>
+                    </svg>
+                </div>
+                <h2 class="panel-title">Simulation Parameters</h2>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="process-count">Number of Processes</label>
+                    <input type="number" id="process-count" class="form-control" min="1" max="10" value="5">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="time-quantum">Time Quantum (ms)</label>
+                    <input type="number" id="time-quantum" class="form-control" min="0.1" step="0.1" value="2.0">
+                </div>
+                
+                <div class="form-group" style="display: flex; align-items: flex-end;">
+                    <button id="generate-table" class="btn btn-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 5v14M5 12h14"></path>
+                        </svg>
+                        Generate Table
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Process Table Panel -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="8" y1="6" x2="21" y2="6"></line>
+                        <line x1="8" y1="12" x2="21" y2="12"></line>
+                        <line x1="8" y1="18" x2="21" y2="18"></line>
+                        <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                        <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                        <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                    </svg>
+                </div>
+                <h2 class="panel-title">Process Details</h2>
+            </div>
+            
+            <div id="process-table-container">
+                <!-- Process table will be generated here -->
+            </div>
+            
+            <div class="btn-group" style="margin-top: 1.5rem;">
+                
+                
+                <button id="calculate-btn" class="btn btn-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                    </svg>
+                    Calculate
+                </button>
+                
+                <button id="reset-btn" class="btn btn-outline">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 2v6h6"></path>
+                        <path d="M3 13a9 9 0 1 0 3-7.7L3 8"></path>
+                    </svg>
+                    Reset
+                </button>
+            </div>
+        </div>
+        
+        <!-- Results Section -->
+        <div id="results-section" class="results-section">
+            <div class="panel">
+                <div class="results-header">
+                    <h2 class="results-title">Simulation Results</h2>
+                </div>
+                
+                <div class="tabs" id="results-tabs">
+                    <div class="tab active" data-tab="gantt">Gantt Chart</div>
+                    <div class="tab" data-tab="waiting">Waiting Time</div>
+                    <div class="tab" data-tab="turnaround">Turnaround Time</div>
+                    <div class="tab" data-tab="completion">Completion Time</div>
+                    <div class="tab" data-tab="avg-waiting">Avg. Waiting Time</div>
+                    <div class="tab" data-tab="avg-turnaround">Avg. Turnaround Time</div>
+                    <div class="tab" data-tab="avg-completion">Avg. Completion Time</div>
+                </div>
+                
+                <div id="results-content">
+                    <!-- Results content will be rendered here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+    // DOM Elements
+    const processCountInput = document.getElementById('process-count');
+    const timeQuantumInput = document.getElementById('time-quantum');
+    const generateTableBtn = document.getElementById('generate-table');
+    const processTableContainer = document.getElementById('process-table-container');
+    const calculateBtn = document.getElementById('calculate-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const resultsSection = document.getElementById('results-section');
+    const resultsTabs = document.getElementById('results-tabs');
+    const resultsContent = document.getElementById('results-content');
+    
+    // Global variables
+    let processData = [];
+    let ganttChartData = [];
+    
+    // Initialize the simulator
+    function initSimulator() {
+        // Set default values
+        processCountInput.value = 5;
+        timeQuantumInput.value = 2.0;
+        
+        // Generate initial process table
+        generateProcessTable(5);
+        
+        // Hide results section initially
+        resultsSection.classList.remove('active');
+        
+        // Add event listeners
+        generateTableBtn.addEventListener('click', handleGenerateTable);
+        calculateBtn.addEventListener('click', handleCalculate);
+        resetBtn.addEventListener('click', handleReset);
+        
+        
+        // Add tab event listeners
+        const tabs = resultsTabs.querySelectorAll('.tab');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Remove active class from all tabs
+                tabs.forEach(t => t.classList.remove('active'));
+                // Add active class to clicked tab
+                tab.classList.add('active');
+                // Show corresponding content
+                showTabContent(tab.getAttribute('data-tab'));
+            });
+        });
+    }
+    
+    // Handle generate table button click
+    function handleGenerateTable() {
+        const count = parseInt(processCountInput.value);
+        if (isNaN(count) || count < 1 || count > 10) {
+            console.log('Please enter a number between 1 and 10');
+            return;
+        }
+        
+        generateProcessTable(count);
+    }
+    
+    // Handle calculate button click
+    function handleCalculate() {
+        if (validateInputs()) {
+            processData = collectProcessData();
+            const timeQuantum = parseFloat(timeQuantumInput.value);
+            
+            if (timeQuantum <= 0) {
+                console.log('Time quantum must be greater than 0');
+                timeQuantumInput.classList.add('error');
+                setTimeout(() => timeQuantumInput.classList.remove('error'), 2000);
+                return;
+            }
+            
+            // Run the Round Robin algorithm
+            runRoundRobinAlgorithm(timeQuantum);
+            
+            // Show results section
+            resultsSection.classList.add('active');
+            
+            // Activate first tab by default
+            const firstTab = resultsTabs.querySelector('.tab');
+            firstTab.click();
+            
+            // Scroll to results
+            resultsSection.scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+    
+    // Handle reset button click
+    function handleReset() {
+        // Reset inputs
+        processCountInput.value = 5;
+        timeQuantumInput.value = 2.0;
+        
+        // Reset process table
+        generateProcessTable(5);
+        
+        // Hide results section
+        resultsSection.classList.remove('active');
+        
+        // Clear data
+        processData = [];
+        ganttChartData = [];
+    }
+    
+    
+    
+    // Generate process input table
+    function generateProcessTable(count) {
+        let tableHTML = `
+            <table class="process-table">
+                <thead>
+                    <tr>
+                        <th>Process ID</th>
+                        <th>Burst Time (ms)</th>
+                        <th>Arrival Time (ms)</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        for (let i = 0; i < count; i++) {
+            tableHTML += `
+                <tr>
+                    <td>
+                        <div class="process-id" style="--process-color: var(--process-color-${i+1})">P${i+1}</div>
+                    </td>
+                    <td>
+                        <input type="number" class="form-control burst-time" min="0.1" step="0.1" placeholder="Burst time">
+                    </td>
+                    <td>
+                        <input type="number" class="form-control arrival-time" min="0" step="0.1" placeholder="Arrival time">
+                    </td>
+                    <td>
+                        <button class="delete-btn" data-row="${i}">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                <line x1="10" y1="11" x2="10" y2="17"></line>
+                                <line x1="14" y1="11" x2="14" y2="17"></line>
+                            </svg>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }
+        
+        tableHTML += `
+                </tbody>
+            </table>
+        `;
+        
+        processTableContainer.innerHTML = tableHTML;
+        
+        // Add event listeners for delete buttons
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const row = this.closest('tr');
+                const burstInput = row.querySelector('.burst-time');
+                const arrivalInput = row.querySelector('.arrival-time');
+                
+                // Clear the inputs
+                burstInput.value = '';
+                arrivalInput.value = '';
+                
+                // Highlight the row
+                row.style.backgroundColor = 'rgba(244, 67, 54, 0.1)';
+                setTimeout(() => {
+                    row.style.backgroundColor = '';
+                    row.style.transition = 'background-color 0.5s';
+                }, 300);
+            });
+        });
+    }
+    
+    // Validate inputs
+    function validateInputs() {
+        const burstInputs = document.querySelectorAll('.burst-time');
+        const arrivalInputs = document.querySelectorAll('.arrival-time');
+        let isValid = true;
+        
+        burstInputs.forEach(input => {
+            if (!input.value || parseFloat(input.value) <= 0) {
+                input.classList.add('error');
+                setTimeout(() => input.classList.remove('error'), 2000);
+                isValid = false;
+            }
+        });
+        
+        if (!isValid) {
+            console.log('Please enter valid burst times (greater than 0)');
+            return false;
+        }
+        
+        arrivalInputs.forEach(input => {
+            if (!input.value || parseFloat(input.value) < 0) {
+                input.classList.add('error');
+                setTimeout(() => input.classList.remove('error'), 2000);
+                isValid = false;
+            }
+        });
+        
+        if (!isValid) {
+            console.log('Please enter valid arrival times (non-negative)');
+            return false;
+        }
+        
+        return true;
+    }
+    
+    // Collect process data from form
+    function collectProcessData() {
+        const data = [];
+        const rows = processTableContainer.querySelectorAll('tbody tr');
+        
+        rows.forEach((row, index) => {
+            const burstInput = row.querySelector('.burst-time');
+            const arrivalInput = row.querySelector('.arrival-time');
+            
+            // Skip rows with empty inputs (deleted processes)
+            if (!burstInput.value || !arrivalInput.value) {
+                return;
+            }
+            
+            const pid = `P${index+1}`;
+            const burstTime = parseFloat(burstInput.value);
+            const arrivalTime = parseFloat(arrivalInput.value);
+            
+            data.push({
+                pid: pid,
+                burstTime: burstTime,
+                arrivalTime: arrivalTime,
+                remainingTime: burstTime,
+                completionTime: 0,
+                turnaroundTime: 0,
+                waitingTime: 0,
+                responseTime: -1 // -1 indicates not started yet
+            });
+        });
+        
+        return data;
+    }
+    
+    // Run Round Robin algorithm
+    function runRoundRobinAlgorithm(timeQuantum) {
+        const processes = JSON.parse(JSON.stringify(processData)); // Deep copy
+        let currentTime = 0;
+        let completedProcesses = 0;
+        ganttChartData = [];
+        
+        // Sort processes by arrival time initially
+        processes.sort((a, b) => a.arrivalTime - b.arrivalTime);
+        
+        // Find the time of the earliest arrival
+        if (processes.length > 0) {
+            currentTime = processes[0].arrivalTime;
+        }
+        
+        // Ready queue to hold processes that have arrived and are waiting for CPU
+        let readyQueue = [];
+        
+        // Continue until all processes are completed
+        while (completedProcesses < processes.length) {
+            // Add newly arrived processes to the ready queue
+            for (let i = 0; i < processes.length; i++) {
+                if (processes[i].arrivalTime <= currentTime && processes[i].remainingTime > 0 && 
+                    !readyQueue.includes(processes[i]) && !processes[i].inQueue) {
+                    readyQueue.push(processes[i]);
+                    processes[i].inQueue = true; // Mark as in queue to avoid duplicates
+                }
+            }
+            
+            // If ready queue is empty but there are still processes to arrive
+            if (readyQueue.length === 0 && completedProcesses < processes.length) {
+                // Find the next process to arrive
+                let nextArrival = Number.MAX_VALUE;
+                for (let i = 0; i < processes.length; i++) {
+                    if (processes[i].remainingTime > 0 && processes[i].arrivalTime > currentTime && 
+                        processes[i].arrivalTime < nextArrival) {
+                        nextArrival = processes[i].arrivalTime;
+                    }
+                }
+                
+                // Add idle time in Gantt chart
+                if (ganttChartData.length > 0 && nextArrival !== Number.MAX_VALUE) {
+                    ganttChartData.push({
+                        pid: 'Idle',
+                        startTime: currentTime,
+                        endTime: nextArrival
+                    });
+                    
+                    currentTime = nextArrival;
+                    continue;
+                }
+            }
+            
+            // If there are processes in the ready queue
+            if (readyQueue.length > 0) {
+                // Get the first process from the queue (FIFO)
+                const currentProcess = readyQueue.shift();
+                
+                // Record first response time if not already recorded
+                if (currentProcess.responseTime === -1) {
+                    currentProcess.responseTime = currentTime - currentProcess.arrivalTime;
+                }
+                
+                // Calculate execution time for this turn
+                const executeTime = Math.min(timeQuantum, currentProcess.remainingTime);
+                
+                // Add to Gantt chart
+                ganttChartData.push({
+                    pid: currentProcess.pid,
+                    startTime: currentTime,
+                    endTime: currentTime + executeTime
+                });
+                
+                // Update current time and remaining time
+                currentTime += executeTime;
+                currentProcess.remainingTime -= executeTime;
+                
+                // Fix floating point precision issues
+                currentProcess.remainingTime = parseFloat(currentProcess.remainingTime.toFixed(1));
+                currentTime = parseFloat(currentTime.toFixed(1));
+                
+                // Check if process is completed
+                if (currentProcess.remainingTime <= 0) {
+                    completedProcesses++;
+                    currentProcess.completionTime = currentTime;
+                    currentProcess.turnaroundTime = currentProcess.completionTime - currentProcess.arrivalTime;
+                    currentProcess.waitingTime = currentProcess.turnaroundTime - currentProcess.burstTime;
+                } else {
+                    // Add back to ready queue if not completed
+                    // Check for new arrivals before adding back
+                    for (let i = 0; i < processes.length; i++) {
+                        if (processes[i].arrivalTime <= currentTime && processes[i].remainingTime > 0 && 
+                            !readyQueue.includes(processes[i]) && !processes[i].inQueue) {
+                            readyQueue.push(processes[i]);
+                            processes[i].inQueue = true;
+                        }
+                    }
+                    
+                    // Add the current process back to the queue
+                    readyQueue.push(currentProcess);
+                }
+            } else {
+                // No processes in ready queue, increment time
+                currentTime += 0.1;
+                currentTime = parseFloat(currentTime.toFixed(1));
+            }
+        }
+        
+        // Update process data with calculated values
+        for (let i = 0; i < processData.length; i++) {
+            const matchingProcess = processes.find(p => p.pid === processData[i].pid);
+            if (matchingProcess) {
+                processData[i].completionTime = matchingProcess.completionTime;
+                processData[i].turnaroundTime = matchingProcess.turnaroundTime;
+                processData[i].waitingTime = matchingProcess.waitingTime;
+                processData[i].responseTime = matchingProcess.responseTime;
+            }
+        }
+    }
+    
+    // Show tab content based on tab ID
+    function showTabContent(tabId) {
+        switch(tabId) {
+            case 'gantt':
+                renderGanttChart();
+                break;
+            case 'waiting':
+                renderWaitingTimeTable();
+                break;
+            case 'turnaround':
+                renderTurnaroundTimeTable();
+                break;
+            case 'completion':
+                renderCompletionTimeTable();
+                break;
+            case 'avg-waiting':
+                renderAverageWaitingTime();
+                break;
+            case 'avg-turnaround':
+                renderAverageTurnaroundTime();
+                break;
+            case 'avg-completion':
+                renderAverageCompletionTime();
+                break;
+        }
+    }
+    
+    // Render Gantt Chart
+    function renderGanttChart() {
+        if (ganttChartData.length === 0) return;
+        
+        // Calculate total execution time to determine scaling
+        const totalExecutionTime = ganttChartData[ganttChartData.length - 1].endTime - ganttChartData[0].startTime;
+        
+        // Determine scaling factor based on total execution time
+        let scaleFactor = 50;
+        if (totalExecutionTime > 50) {
+            scaleFactor = 20;
+        } else if (totalExecutionTime > 30) {
+            scaleFactor = 30;
+        } else if (totalExecutionTime > 20) {
+            scaleFactor = 40;
+        }
+        
+        let html = `
+            <div class="gantt-header">
+                <h3 class="gantt-title">Process Execution Timeline</h3>
+            </div>
+            <div class="gantt-container">
+                <div class="gantt-chart">
+        `;
+        
+        // Create time markers array
+        let timeMarkers = [];
+        let totalWidth = 0;
+        
+        // First pass to calculate positions and total width
+        ganttChartData.forEach((item, index) => {
+            const width = (item.endTime - item.startTime) * scaleFactor;
+            
+            // Add start time marker if it's the first block
+            if (index === 0) {
+                timeMarkers.push({
+                    time: item.startTime,
+                    position: 0
+                });
+            }
+            
+            // Add end time marker
+            timeMarkers.push({
+                time: item.endTime,
+                position: totalWidth + width
+            });
+            
+            totalWidth += width;
+        });
+        
+        // Second pass to render blocks
+        ganttChartData.forEach((item, index) => {
+            const width = (item.endTime - item.startTime) * scaleFactor;
+            let blockClass = 'process-idle';
+            
+            if (item.pid !== 'Idle') {
+                const processNumber = parseInt(item.pid.substring(1));
+                blockClass = `process-color-${processNumber}`;
+            }
+            
+            html += `
+                <div class="gantt-block ${blockClass}" 
+                     style="width: ${width}px;" 
+                     data-index="${index}">
+                    ${item.pid}
+                </div>
+            `;
+        });
+        
+        html += `</div>`;
+        
+        // Add timeline with markers below the blocks
+        html += `<div class="gantt-timeline" style="width: ${totalWidth}px;">`;
+        
+        timeMarkers.forEach(marker => {
+            html += `
+                <div class="time-marker" style="left: ${marker.position}px;"></div>
+                <div class="time-label" style="left: ${marker.position}px;">${formatTime(marker.time)}</div>
+            `;
+        });
+        
+        html += `</div></div>`;
+        
+        resultsContent.innerHTML = html;
+        
+        // Animate Gantt blocks
+        setTimeout(() => {
+            const blocks = document.querySelectorAll('.gantt-block');
+            blocks.forEach((block, index) => {
+                setTimeout(() => {
+                    block.classList.add('animate');
+                }, index * 100);
+            });
+        }, 100);
+    }
+    
+    // Render Waiting Time Table
+    function renderWaitingTimeTable() {
+        let html = `
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                    </div>
+                    <h3 class="panel-title">Process Waiting Times</h3>
+                </div>
+                
+                <table class="process-table">
+                    <thead>
+                        <tr>
+                            <th>Process ID</th>
+                            <th>Waiting Time (ms)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        processData.forEach((process, index) => {
+            html += `
+                <tr>
+                    <td>
+                        <div class="process-id" style="--process-color: var(--process-color-${index+1})">
+                            ${process.pid}
+                        </div>
+                    </td>
+                    <td>${formatTime(process.waitingTime)}</td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+                
+                <div class="solution-container">
+                    <button class="solution-toggle" id="waiting-solution-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="16"></line>
+                            <line x1="8" y1="12" x2="16" y2="12"></line>
+                        </svg>
+                        Show Solution Steps
+                    </button>
+                    
+                    <div class="solution-steps" id="waiting-solution-steps">
+                        <p>Waiting Time = Turnaround Time - Burst Time</p>
+        `;
+        
+        processData.forEach((process, index) => {
+            html += `
+                <div class="step" data-index="${index}">
+                    <strong>${process.pid}:</strong>
+                    <div class="formula">Waiting Time = Turnaround Time - Burst Time</div>
+                    <div class="formula">Waiting Time = ${formatTime(process.turnaroundTime)} - ${formatTime(process.burstTime)}</div>
+                    <div class="formula">Waiting Time = ${formatTime(process.waitingTime)}</div>
+                </div>
+            `;
+        });
+        
+        html += `
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        resultsContent.innerHTML = html;
+        
+        // Add event listener for solution toggle
+        document.getElementById('waiting-solution-toggle').addEventListener('click', function() {
+            const solutionSteps = document.getElementById('waiting-solution-steps');
+            solutionSteps.classList.toggle('active');
+            
+            if (solutionSteps.classList.contains('active')) {
+                this.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="8" y1="12" x2="16" y2="12"></line>
+                    </svg>
+                    Hide Solution Steps
+                `;
+                
+                // Animate steps
+                const steps = solutionSteps.querySelectorAll('.step');
+                steps.forEach((step, index) => {
+                    setTimeout(() => {
+                        step.classList.add('animate');
+                    }, index * 150);
+                });
+            } else {
+                this.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="16"></line>
+                        <line x1="8" y1="12" x2="16" y2="12"></line>
+                    </svg>
+                    Show Solution Steps
+                `;
+            }
+        });
+    }
+    
+    // Render Turnaround Time Table
+    function renderTurnaroundTimeTable() {
+        let html = `
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6 2"></path>
+                            <polyline points="12 5 12 12 17 12"></polyline>
+                        </svg>
+                    </div>
+                    <h3 class="panel-title">Process Turnaround Times</h3>
+                </div>
+                
+                <table class="process-table">
+                    <thead>
+                        <tr>
+                            <th>Process ID</th>
+                            <th>Turnaround Time (ms)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        processData.forEach((process, index) => {
+            html += `
+                <tr>
+                    <td>
+                        <div class="process-id" style="--process-color: var(--process-color-${index+1})">
+                            ${process.pid}
+                        </div>
+                    </td>
+                    <td>${formatTime(process.turnaroundTime)}</td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+                
+                <div class="solution-container">
+                    <button class="solution-toggle" id="turnaround-solution-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="16"></line>
+                            <line x1="8" y1="12" x2="16" y2="12"></line>
+                        </svg>
+                        Show Solution Steps
+                    </button>
+                    
+                    <div class="solution-steps" id="turnaround-solution-steps">
+                        <p>Turnaround Time = Completion Time - Arrival Time</p>
+        `;
+        
+        processData.forEach((process, index) => {
+            html += `
+                <div class="step" data-index="${index}">
+                    <strong>${process.pid}:</strong>
+                    <div class="formula">Turnaround Time = Completion Time - Arrival Time</div>
+                    <div class="formula">Turnaround Time = ${formatTime(process.completionTime)} - ${formatTime(process.arrivalTime)}</div>
+                    <div class="formula">Turnaround Time = ${formatTime(process.turnaroundTime)}</div>
+                </div>
+            `;
+        });
+        
+        html += `
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        resultsContent.innerHTML = html;
+        
+        // Add event listener for solution toggle
+        document.getElementById('turnaround-solution-toggle').addEventListener('click', function() {
+            const solutionSteps = document.getElementById('turnaround-solution-steps');
+            solutionSteps.classList.toggle('active');
+            
+            if (solutionSteps.classList.contains('active')) {
+                this.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="8" y1="12" x2="16" y2="12"></line>
+                    </svg>
+                    Hide Solution Steps
+                `;
+                
+                // Animate steps
+                const steps = solutionSteps.querySelectorAll('.step');
+                steps.forEach((step, index) => {
+                    setTimeout(() => {
+                        step.classList.add('animate');
+                    }, index * 150);
+                });
+            } else {
+                this.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="16"></line>
+                        <line x1="8" y1="12" x2="16" y2="12"></line>
+                    </svg>
+                    Show Solution Steps
+                `;
+            }
+        });
+    }
+    
+    // Render Completion Time Table
+    function renderCompletionTimeTable() {
+        // First render the gantt chart as reference
+        let html = renderGanttChartHTML();
+        
+        html += `
+            <div class="panel" style="margin-top: 2rem;">
+                <div class="panel-header">
+                    <div class="panel-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </div>
+                    <h3 class="panel-title">Process Completion Times</h3>
+                </div>
+                
+                <table class="process-table">
+                    <thead>
+                        <tr>
+                            <th>Process ID</th>
+                            <th>Completion Time (ms)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        processData.forEach((process, index) => {
+            html += `
+                <tr>
+                    <td>
+                        <div class="process-id" style="--process-color: var(--process-color-${index+1})">
+                            ${process.pid}
+                        </div>
+                    </td>
+                    <td>${formatTime(process.completionTime)}</td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+        
+        resultsContent.innerHTML = html;
+        
+        // Animate Gantt blocks
+        setTimeout(() => {
+            const blocks = document.querySelectorAll('.gantt-block');
+            blocks.forEach((block, index) => {
+                setTimeout(() => {
+                    block.classList.add('animate');
+                }, index * 100);
+            });
+        }, 100);
+        
+        
+    }
+    
+    // Helper function to render gantt chart HTML
+    function renderGanttChartHTML() {
+        if (ganttChartData.length === 0) return '';
+        
+        // Calculate total execution time to determine scaling
+        const totalExecutionTime = ganttChartData[ganttChartData.length - 1].endTime - ganttChartData[0].startTime;
+        
+        // Determine scaling factor based on total execution time
+        let scaleFactor = 50;
+        if (totalExecutionTime > 50) {
+            scaleFactor = 20;
+        } else if (totalExecutionTime > 30) {
+            scaleFactor = 30;
+        } else if (totalExecutionTime > 20) {
+            scaleFactor = 40;
+        }
+        
+        let html = `
+            <div class="gantt-header">
+                <h3 class="gantt-title">Process Execution Timeline</h3>
+            </div>
+            <div class="gantt-container">
+                <div class="gantt-chart">
+        `;
+        
+        // Create time markers array
+        let timeMarkers = [];
+        let totalWidth = 0;
+        
+        // First pass to calculate positions and total width
+        ganttChartData.forEach((item, index) => {
+            const width = (item.endTime - item.startTime) * scaleFactor;
+            
+            // Add start time marker if it's the first block
+            if (index === 0) {
+                timeMarkers.push({
+                    time: item.startTime,
+                    position: 0
+                });
+            }
+            
+            // Add end time marker
+            timeMarkers.push({
+                time: item.endTime,
+                position: totalWidth + width
+            });
+            
+            totalWidth += width;
+        });
+        
+        // Second pass to render blocks
+        ganttChartData.forEach((item, index) => {
+            const width = (item.endTime - item.startTime) * scaleFactor;
+            let blockClass = 'process-idle';
+            
+            if (item.pid !== 'Idle') {
+                const processNumber = parseInt(item.pid.substring(1));
+                blockClass = `process-color-${processNumber}`;
+            }
+            
+            html += `
+                <div class="gantt-block ${blockClass}" 
+                     style="width: ${width}px;" 
+                     data-index="${index}">
+                    ${item.pid}
+                </div>
+            `;
+        });
+        
+        html += `</div>`;
+        
+        // Add timeline with markers
+        html += `<div class="gantt-timeline" style="width: ${totalWidth}px;">`;
+        
+        timeMarkers.forEach(marker => {
+            html += `
+                <div class="time-marker" style="left: ${marker.position}px;"></div>
+                <div class="time-label" style="left: ${marker.position}px;">${formatTime(marker.time)}</div>
+            `;
+        });
+        
+        html += `</div></div>`;
+        
+        return html;
+    }
+    
+    // Render Average Waiting Time
+    function renderAverageWaitingTime() {
+        // Calculate average waiting time
+        const avgWaitingTime = processData.reduce((sum, p) => sum + p.waitingTime, 0) / processData.length;
+        
+        let html = `
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                    </div>
+                    <h3 class="panel-title">Average Waiting Time</h3>
+                </div>
+                
+                <div class="metric-card" style="max-width: 300px; margin: 0 auto 2rem auto;">
+                    <div class="metric-value number-animation" id="avg-waiting-time">0.00</div>
+                    <div class="metric-label">Average Waiting Time (ms)</div>
+                </div>
+                
+                <div class="solution-container">
+                    <button class="solution-toggle" id="avg-waiting-solution-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="16"></line>
+                            <line x1="8" y1="12" x2="16" y2="12"></line>
+                        </svg>
+                        Show Solution Steps
+                    </button>
+                    
+                    <div class="solution-steps" id="avg-waiting-solution-steps">
+                        <p>Average Waiting Time is calculated by summing all individual process waiting times and dividing by the number of processes.</p>
+                        
+                        <div class="step">
+                            <strong>Average Waiting Time:</strong>
+                            <div class="formula">Avg. Waiting Time = Sum of all Waiting Times / Number of Processes</div>
+                            <div class="formula">Avg. Waiting Time = (${processData.map(p => formatTime(p.waitingTime)).join(' + ')}) / ${processData.length}</div>
+                            <div class="formula">Avg. Waiting Time = ${formatTime(avgWaitingTime)}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        resultsContent.innerHTML = html;
+        
+        // Set the value directly with animation class
+        document.getElementById('avg-waiting-time').textContent = formatTime(avgWaitingTime);
+        
+        // Add event listener for solution toggle
+        document.getElementById('avg-waiting-solution-toggle').addEventListener('click', function() {
+            const solutionSteps = document.getElementById('avg-waiting-solution-steps');
+            solutionSteps.classList.toggle('active');
+            
+            if (solutionSteps.classList.contains('active')) {
+                this.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="8" y1="12" x2="16" y2="12"></line>
+                    </svg>
+                    Hide Solution Steps
+                `;
+                
+                // Animate steps
+                const steps = solutionSteps.querySelectorAll('.step');
+                steps.forEach((step, index) => {
+                    setTimeout(() => {
+                        step.classList.add('animate');
+                    }, index * 150);
+                });
+            } else {
+                this.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="16"></line>
+                        <line x1="8" y1="12" x2="16" y2="12"></line>
+                    </svg>
+                    Show Solution Steps
+                `;
+            }
+        });
+    }
+    
+    // Render Average Turnaround Time
+    function renderAverageTurnaroundTime() {
+        // Calculate average turnaround time
+        const avgTurnaroundTime = processData.reduce((sum, p) => sum + p.turnaroundTime, 0) / processData.length;
+        
+        let html = `
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6 2"></path>
+                            <polyline points="12 5 12 12 17 12"></polyline>
+                        </svg>
+                    </div>
+                    <h3 class="panel-title">Average Turnaround Time</h3>
+                </div>
+                
+                <div class="metric-card" style="max-width: 300px; margin: 0 auto 2rem auto;">
+                    <div class="metric-value number-animation" id="avg-turnaround-time">0.00</div>
+                    <div class="metric-label">Average Turnaround Time (ms)</div>
+                </div>
+                
+                <div class="solution-container">
+                    <button class="solution-toggle" id="avg-turnaround-solution-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="16"></line>
+                            <line x1="8" y1="12" x2="16" y2="12"></line>
+                        </svg>
+                        Show Solution Steps
+                    </button>
+                    
+                    <div class="solution-steps" id="avg-turnaround-solution-steps">
+                        <p>Average Turnaround Time is calculated by summing all individual process turnaround times and dividing by the number of processes.</p>
+                        
+                        <div class="step">
+                            <strong>Average Turnaround Time:</strong>
+                            <div class="formula">Avg. Turnaround Time = Sum of all Turnaround Times / Number of Processes</div>
+                            <div class="formula">Avg. Turnaround Time = (${processData.map(p => formatTime(p.turnaroundTime)).join(' + ')}) / ${processData.length}</div>
+                            <div class="formula">Avg. Turnaround Time = ${formatTime(avgTurnaroundTime)}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        resultsContent.innerHTML = html;
+        
+        // Set the value directly with animation class
+        document.getElementById('avg-turnaround-time').textContent = formatTime(avgTurnaroundTime);
+        
+        // Add event listener for solution toggle
+        document.getElementById('avg-turnaround-solution-toggle').addEventListener('click', function() {
+            const solutionSteps = document.getElementById('avg-turnaround-solution-steps');
+            solutionSteps.classList.toggle('active');
+            
+            if (solutionSteps.classList.contains('active')) {
+                this.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="8" y1="12" x2="16" y2="12"></line>
+                    </svg>
+                    Hide Solution Steps
+                `;
+                
+                // Animate steps
+                const steps = solutionSteps.querySelectorAll('.step');
+                steps.forEach((step, index) => {
+                    setTimeout(() => {
+                        step.classList.add('animate');
+                    }, index * 150);
+                });
+            } else {
+                this.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="16"></line>
+                        <line x1="8" y1="12" x2="16" y2="12"></line>
+                    </svg>
+                    Show Solution Steps
+                `;
+            }
+        });
+    }
+    
+    // Render Average Completion Time
+    function renderAverageCompletionTime() {
+        // Calculate average completion time
+        const avgCompletionTime = processData.reduce((sum, p) => sum + p.completionTime, 0) / processData.length;
+        
+        let html = `
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </div>
+                    <h3 class="panel-title">Average Completion Time</h3>
+                </div>
+                
+                <div class="metric-card" style="max-width: 300px; margin: 0 auto 2rem auto;">
+                    <div class="metric-value number-animation" id="avg-completion-time">0.00</div>
+                    <div class="metric-label">Average Completion Time (ms)</div>
+                </div>
+                
+                <div class="solution-container">
+                    <button class="solution-toggle" id="avg-completion-solution-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="16"></line>
+                            <line x1="8" y1="12" x2="16" y2="12"></line>
+                        </svg>
+                        Show Solution Steps
+                    </button>
+                    
+                    <div class="solution-steps" id="avg-completion-solution-steps">
+                        <p>Average Completion Time is calculated by summing all individual process completion times and dividing by the number of processes.</p>
+                        
+                        <div class="step">
+                            <strong>Average Completion Time:</strong>
+                            <div class="formula">Avg. Completion Time = Sum of all Completion Times / Number of Processes</div>
+                            <div class="formula">Avg. Completion Time = (${processData.map(p => formatTime(p.completionTime)).join(' + ')}) / ${processData.length}</div>
+                            <div class="formula">Avg. Completion Time = ${formatTime(avgCompletionTime)}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        resultsContent.innerHTML = html;
+        
+        // Set the value directly with animation class
+        document.getElementById('avg-completion-time').textContent = formatTime(avgCompletionTime);
+        
+        // Add event listener for solution toggle
+        document.getElementById('avg-completion-solution-toggle').addEventListener('click', function() {
+            const solutionSteps = document.getElementById('avg-completion-solution-steps');
+            solutionSteps.classList.toggle('active');
+            
+            if (solutionSteps.classList.contains('active')) {
+                this.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="8" y1="12" x2="16" y2="12"></line>
+                    </svg>
+                    Hide Solution Steps
+                `;
+                
+                // Animate steps
+                const steps = solutionSteps.querySelectorAll('.step');
+                steps.forEach((step, index) => {
+                    setTimeout(() => {
+                        step.classList.add('animate');
+                    }, index * 150);
+                });
+            } else {
+                this.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="16"></line>
+                        <line x1="8" y1="12" x2="16" y2="12"></line>
+                    </svg>
+                    Show Solution Steps
+                `;
+            }
+        });
+    }
+    
+    // Format time to handle decimal places properly
+    function formatTime(time) {
+        // Check if the number is a whole number
+        return Number.isInteger(time) ? time.toString() : time.toFixed(1);
+    }
+    
+    // Highlight input field with animation
+    function highlightInput(input) {
+        input.style.backgroundColor = 'rgba(255, 215, 0, 0.1)';
+        input.style.borderColor = 'var(--primary)';
+        
+        setTimeout(() => {
+            input.style.backgroundColor = '';
+            input.style.borderColor = '';
+            input.style.transition = 'background-color 1s, border-color 1s';
+        }, 1000);
+    }
+    
+    // Initialize the simulator
+    initSimulator();
+});
+    </script>
+</body>
+</html>
